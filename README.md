@@ -31,6 +31,9 @@ users:
 pip install -r requestment.txt
 python3 uptime.py
 ```
-
+运行日志
+![运行日志](img/image.png)
+uptime-界面
+![uptime-界面](img/image-1.png)
 ### 依赖
 [uptime-kuma-api](https://uptime-kuma-api.readthedocs.io/en/latest/)
