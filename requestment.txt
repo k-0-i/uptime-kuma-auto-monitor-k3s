@@ -1,0 +1,2 @@
+aiohttp
+uptime_kuma_api
