@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import ssl
+
 import aiohttp
 from uptime_kuma_api import UptimeKumaApi, MonitorType, AuthMethod, MonitorStatus, UptimeKumaException
 
@@ -40,7 +41,7 @@ async def check_pod():
     """
     pod_message = {}  # {pod_name: creationTimestamp}
     url = "https://ip:6443/api/v1/namespaces/<your_namespace>/pods"
-
+    
     # 创建 SSL 上下文
     ssl_context = create_ssl_context()
 
@@ -69,7 +70,18 @@ async def check_pod():
                     logging.error(f"Error: Response does not contain 'items'. Response: {req_json}")
         except Exception as e:
             logging.error(f"Error while checking pods: {e}")
+            if "not logged in" in str(e):  # 如果是登录过期问题
+                await login()  # 重新登录并重试
+                await check_pod()
 
+
+async def login():
+    """重新登录函数"""
+    try:
+        api.login(username, password)
+        logging.info("Successfully logged in.")
+    except Exception as e:
+        logging.error(f"Login failed: {e}")
 
 async def auto_add_monitor(pod_name, pod_creation_time):
     """
@@ -88,8 +100,7 @@ async def auto_add_monitor(pod_name, pod_creation_time):
                               url=monotor_url,
                               authMethod=AuthMethod.MTLS, tlsCert=tlsCert, tlsKey=tlsKey, tlsCa=tlsCa,
                               ignoreTls=True,
-                              parent=group_id,
-                              timeout=30)
+                              parent=group_id, timeout=30)
         logging.info(res)
         new_id = res['monitorID']  # 新增的监控项的ID， res={'msg': 'Added Successfully.', 'monitorID': 38}
         await edit_status_page(new_id)  # 修改状态页面 （基于save_status_page修改）
@@ -100,7 +111,6 @@ async def auto_add_monitor(pod_name, pod_creation_time):
 async def delete_monitor():
     """
     删除状态为 DOWN 的监控项
-
     """
     monitor_list = api.get_monitors()  # No await here, as it's a synchronous function
     all_id = [i['id'] for i in monitor_list]
@@ -109,17 +119,22 @@ async def delete_monitor():
         logging.info(f"现在查看id为{id}的页面")
         try:
             if id != group_id:
-                monitor_status = api.get_monitor_status(id)  # No await here either
+                monitor_status = api.get_monitor_status(id)
                 logging.info(f"页面id为 {id} 的状态{monitor_status}")
                 if monitor_status == MonitorStatus.DOWN:
                     api.delete_monitor(id)
                     logging.info(f"delete monitor {id}")
-        except UptimeKumaException:
-            logging.error(f"Monitor with ID {id} does not exist.")
+        except UptimeKumaException as e:
+            logging.error(f"Monitor error: {e}")
+        except Exception as e:
+            logging.error(f"Error while deleting monitor: {e}")
+            if "not logged in" in str(e):  # 如果是登录过期问题
+                await login()  # 重新登录并重试
+                await delete_monitor()  # 重新执行删除操作
 
 
 async def edit_status_page(new_id: int):
-    """
+"""
     修改Status页面
     uptime-kuma-api 库没有提供局部修改 status page 的方法，因此需要手动获取 status page 的配置，修改 monitorList，再保存
 
@@ -158,7 +173,7 @@ async def get_monitor_name() -> list:
     获取所有监控项的名称
     """
     monitored_name = []
-    monitor_list = api.get_monitors()  
+    monitor_list = api.get_monitors() 
     for monitor in monitor_list:
         monitored_name.append(monitor['name'])
     logging.info(f"已经被监测的项目名字有monitored_name=> {monitored_name}")
@@ -169,7 +184,6 @@ async def status_page():
     """
     获取 status 页面信息
     """
-    api.get_status_pages()
     a = api.get_status_page('hubuctf')
     logging.info(f"Status page: {a}")
 

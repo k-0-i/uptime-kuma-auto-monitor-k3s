@@ -35,5 +35,24 @@ python3 uptime.py
 ![运行日志](img/image.png)
 uptime-界面
 ![uptime-界面](img/image-1.png)
+
+## Update
+第一次测试大约运行了210分钟,提示已经退出登陆了，应该是token过期了
+![first run](img/test_1.png)
+
+![not login in](img/login.png)
+```python
+async def login():
+    """重新登录函数"""
+    try:
+        api.login(username, password)
+        logging.info("Successfully logged in.")
+    except Exception as e:
+        logging.error(f"Login failed: {e}")
+```
+增加了一个判断，如果登陆失效就重新登陆
+效果如下图
+![alt text](img/login_success.png)
+
 ### 依赖
 [uptime-kuma-api](https://uptime-kuma-api.readthedocs.io/en/latest/)
